@@ -1,0 +1,306 @@
+
+class ActivePoint 
+{
+	static Node activeNode;
+	static int activeEdge;
+	static int activeLength;
+	static int chareterindex;
+}
+
+// Node class ( Node Structure )
+class Node
+{
+	int edge_start;
+	int edge_end;
+	
+	Node[] alp = new Node[27];
+	
+	Node suffix_link;
+	int index_no;
+	
+	public Node(int start)
+	{
+		suffix_link = null;
+		edge_start = start;
+		edge_end=-1;
+		index_no = -1;
+		
+		for(int i=0; i<27; i++)
+			alp[i] = null;
+	}
+	
+	public void setEndNode( int end)
+	{
+		edge_end = end;
+	}
+	
+}
+
+// Suffix Tree class
+class SuffixTree
+{
+	int END;
+	public String word;
+	public char[] charWord;
+	int rSC;
+	Node root;
+	
+	public SuffixTree(String word)
+	{
+		// Root information is set
+		END = -1;
+		this.word = word;
+		charWord = word.toCharArray();
+		root = new Node(-1);
+		rSC = 0;
+		
+		ActivePoint.activeNode = root;
+		ActivePoint.activeEdge = 0;         // Edge will hold the index of character whose edge id present
+		ActivePoint.activeLength = 0;
+		ActivePoint.chareterindex = -1;     // Hold the index of character denoted by activeEdge, in string
+		
+		// Build tree after root is set
+		buildSuffixTree();
+		
+		root = puttingEndSuffixes(root, 0);
+		
+	}
+
+	private Node puttingEndSuffixes(Node n, int length) {
+		
+		Node p;
+		for(int i = 0; i< n.alp.length; i++)
+		{
+			if(n.alp[i] != null)
+			{
+				p = n.alp[i];
+				if(p.edge_end == -1)
+				{
+					p.edge_end = END;
+					p.index_no = charWord.length - (length + p.edge_end - p.edge_start + 1);
+				}
+				else
+				{
+					n.alp[i] = puttingEndSuffixes(p, length + p.edge_end - p.edge_start + 1);
+				}
+					
+			}
+		}
+		
+		return n;
+	}
+
+	public void printAllSuffixes(Node n)
+	{
+		if(n == null)
+		{
+			System.out.println("No Tree");
+			return;
+		}
+		
+		if(n.edge_end == (charWord.length - 1))
+		{
+			for(int i = n.index_no; i<n.edge_end; i++)
+				System.out.print(charWord[i]);
+			
+			System.out.println();
+			return;
+		}
+		
+		for(int i=0; i<27; i++)
+		{
+			if(n.alp[i] != null)
+			{
+				printAllSuffixes(n.alp[i]);
+			}
+		}
+	}
+	
+	public void buildSuffixTree()
+	{
+		int i=0;
+		int index;
+		
+		// Phase Loop
+		for(; i < word.length(); i++)
+		{
+			// Find out in which index particular character lies in array 
+			if(charWord[i] != '$')
+				index = (int)charWord[i] - (int)'a';
+			else 
+				index = 26;
+			
+			// Add the character to tree in each phase
+			addSuffix(i, index);
+		}
+	}
+	
+	public void addSuffix(int i, int index)
+	{
+		// All character to leaf node
+		END++;
+		
+		rSC++;
+		
+		Node k = null;
+		
+		// Extension loops of phase 
+		//System.out.println(i+"-----------");
+		for(; rSC>0; rSC--)
+		{
+			// 1. check for activeLength  
+			if(ActivePoint.activeLength == 0)
+			{
+				// In this particular index will have the leaf node for the character ( Set current character to activeEdge )
+				if(charWord[i] != '$')
+					ActivePoint.activeEdge = (int)charWord[i] - (int)'a';
+				else
+					ActivePoint.activeEdge = 26;
+				
+				ActivePoint.chareterindex = i;
+			}
+			
+			if(pathFromNodeWithActiveEdgeLabel())
+			{
+				// If there is a edge already present with activeEdge label from activeNode
+				// So we need to walk down if ( activeLength < edgeLenght )
+				
+				while(ifWalkDown())
+				{
+					Node n = ActivePoint.activeNode.alp[ActivePoint.activeEdge];
+					
+					int edgeLength;
+					if(n.edge_end == -1)
+						edgeLength = END - n.edge_start + 1;
+					else
+						edgeLength = n.edge_end - n.edge_start + 1;
+					
+					ActivePoint.activeNode = n;
+					ActivePoint.activeLength = ActivePoint.activeLength - edgeLength;
+					ActivePoint.activeEdge = (int)charWord[ActivePoint.chareterindex + edgeLength] - (int)'a';
+					ActivePoint.chareterindex = ActivePoint.chareterindex + edgeLength;
+					
+				}
+				
+				if(characterAfterActivePoint(i))
+				{
+					// Rule 3 apply  as current character already present
+					//System.out.println("Rule 3 Applied ....");
+					ActivePoint.activeLength++;
+					return;
+				}
+				else
+				{
+					// Rule 2 apply - internal node
+					addInternalNode(i);
+					
+					if(k != null)
+					{
+						//System.out.println("Set Suffix link");
+						k.suffix_link = ActivePoint.activeNode.alp[ActivePoint.activeEdge];
+					}
+					
+					// Created internal Node is set in stack simply holding the previously created node 
+					k = ActivePoint.activeNode.alp[ActivePoint.activeEdge]; 
+					
+					// Rule 2 Case 1 ( stay on same node )
+					if(ActivePoint.activeNode == root && ActivePoint.activeLength > 0)
+					{
+						ActivePoint.activeLength--;
+						ActivePoint.chareterindex = i - ( rSC - 1 ) + 1; 
+						ActivePoint.activeEdge = (int)charWord[ActivePoint.chareterindex] - (int)'a';
+					}
+					else if(ActivePoint.activeNode != root)
+						{
+							//Rule 2 Case 2 Move to suffix node
+							ActivePoint.activeNode = ActivePoint.activeNode.suffix_link;
+						}
+				}
+			}
+			else
+			{
+				// If there is no out going edge from activeNode with label as active Edge
+				// So a leaf node is created here ( Rule 2 )
+				ActivePoint.activeNode.alp[ActivePoint.activeEdge] = new Node(i);
+			}
+		}
+		
+		if(k != null)
+		{
+			// last internal Node of phase will point to the root
+			k.suffix_link = root;
+			k = null;
+		}
+	}
+
+	private boolean ifWalkDown() {
+		
+		Node n = ActivePoint.activeNode.alp[ActivePoint.activeEdge];
+		int edgeLength;
+		
+		if(n.edge_end == -1)
+			edgeLength = END - n.edge_start + 1;
+		else
+			edgeLength = n.edge_end - n.edge_start + 1;
+		
+		if(ActivePoint.activeLength >= edgeLength)
+			return true;
+		return false;
+	}
+
+	private void addInternalNode(int i) {
+		// Previous leaf node
+		Node parent = ActivePoint.activeNode.alp[ActivePoint.activeEdge]; 
+		
+		// Create a internal node
+		Node internalNode = new Node(parent.edge_start);
+		internalNode.setEndNode(parent.edge_start + ActivePoint.activeLength - 1);
+		//System.out.println("{"+ internalNode.edge_start+" , "+ internalNode.edge_end+"}");
+		
+		// New Node with single character
+		Node otherLeaf = new Node(i);
+		
+		// Setting pointer from internal node to leaf
+		parent.edge_start =  internalNode.edge_end + 1;
+		int index = (int)charWord[parent.edge_start] - (int)'a';
+		internalNode.alp[index] = parent;	
+		
+		//  Setting pointer to next leaf
+		if(charWord[i] != '$')
+			index = (int)charWord[i] - (int)'a';
+		else
+			index = 26;
+		internalNode.alp[index] = otherLeaf;
+		
+		// Setting pointer to internal node
+		ActivePoint.activeNode.alp[ActivePoint.activeEdge] = internalNode;
+				
+	}
+
+	private boolean characterAfterActivePoint(int i) {
+		Node n = ActivePoint.activeNode.alp[ActivePoint.activeEdge]; 
+		int start = n.edge_start;
+		if(charWord[start + ActivePoint.activeLength] == charWord[i])
+			return true;
+		else
+			return false;
+	}
+
+	private boolean pathFromNodeWithActiveEdgeLabel() {
+		if(ActivePoint.activeNode.alp[ActivePoint.activeEdge] != null)
+			return true;
+		return false;
+	}
+}
+
+// Main Class
+public class B
+{
+	public static void main(String[] args)
+	{
+	   SuffixTree st = new SuffixTree("kknationo$");
+	   
+	   st.printAllSuffixes(st.root);
+	   
+	}
+}
