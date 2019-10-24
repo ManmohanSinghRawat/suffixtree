@@ -1,4 +1,3 @@
-
 class ActivePoint 
 {
 	static Node activeNode;
@@ -13,7 +12,7 @@ class Node
 	int edge_start;
 	int edge_end;
 	
-	Node[] alp = new Node[27];
+	Node[] alp = new Node[256];
 	
 	Node suffix_link;
 	int index_no;
@@ -25,7 +24,7 @@ class Node
 		edge_end=-1;
 		index_no = -1;
 		
-		for(int i=0; i<27; i++)
+		for(int i=0; i<256; i++)
 			alp[i] = null;
 	}
 	
@@ -100,14 +99,14 @@ class SuffixTree
 		
 		if(n.edge_end == (charWord.length - 1))
 		{
-			for(int i = n.index_no; i<n.edge_end; i++)
+			for(int i = n.index_no; i<=n.edge_end; i++)
 				System.out.print(charWord[i]);
 			
 			System.out.println();
 			return;
 		}
 		
-		for(int i=0; i<27; i++)
+		for(int i=0; i<256; i++)
 		{
 			if(n.alp[i] != null)
 			{
@@ -125,11 +124,12 @@ class SuffixTree
 		for(; i < word.length(); i++)
 		{
 			// Find out in which index particular character lies in array 
-			if(charWord[i] != '$')
+			/*if(charWord[i] != '$')
 				index = (int)charWord[i] - (int)'a';
 			else 
 				index = 26;
-			
+			*/
+			index = (int)charWord[i];
 			// Add the character to tree in each phase
 			addSuffix(i, index);
 		}
@@ -152,11 +152,13 @@ class SuffixTree
 			if(ActivePoint.activeLength == 0)
 			{
 				// In this particular index will have the leaf node for the character ( Set current character to activeEdge )
-				if(charWord[i] != '$')
+				/*if(charWord[i] != '$')
 					ActivePoint.activeEdge = (int)charWord[i] - (int)'a';
 				else
 					ActivePoint.activeEdge = 26;
+				*/
 				
+				ActivePoint.activeEdge = (int)charWord[i];
 				ActivePoint.chareterindex = i;
 			}
 			
@@ -177,7 +179,8 @@ class SuffixTree
 					
 					ActivePoint.activeNode = n;
 					ActivePoint.activeLength = ActivePoint.activeLength - edgeLength;
-					ActivePoint.activeEdge = (int)charWord[ActivePoint.chareterindex + edgeLength] - (int)'a';
+					//ActivePoint.activeEdge = (int)charWord[ActivePoint.chareterindex + edgeLength] - (int)'a';
+					ActivePoint.activeEdge = (int)charWord[ActivePoint.chareterindex + edgeLength];
 					ActivePoint.chareterindex = ActivePoint.chareterindex + edgeLength;
 					
 				}
@@ -189,33 +192,40 @@ class SuffixTree
 					ActivePoint.activeLength++;
 					return;
 				}
-				else
-				{
-					// Rule 2 apply - internal node
-					addInternalNode(i);
-					
-					if(k != null)
+				else if(noNodeFromActiveNode(i))
 					{
-						//System.out.println("Set Suffix link");
-						k.suffix_link = ActivePoint.activeNode.alp[ActivePoint.activeEdge];
+						// If activenode is an internal node and there is no edge going out of it with active Edge label
+						ActivePoint.activeNode.alp[ActivePoint.activeEdge] = new Node(i);
+						ActivePoint.activeNode = ActivePoint.activeNode.suffix_link;
 					}
-					
-					// Created internal Node is set in stack simply holding the previously created node 
-					k = ActivePoint.activeNode.alp[ActivePoint.activeEdge]; 
-					
-					// Rule 2 Case 1 ( stay on same node )
-					if(ActivePoint.activeNode == root && ActivePoint.activeLength > 0)
+					else
 					{
-						ActivePoint.activeLength--;
-						ActivePoint.chareterindex = i - ( rSC - 1 ) + 1; 
-						ActivePoint.activeEdge = (int)charWord[ActivePoint.chareterindex] - (int)'a';
-					}
-					else if(ActivePoint.activeNode != root)
+						// Rule 2 apply - internal node
+						addInternalNode(i);
+						
+						if(k != null)
 						{
-							//Rule 2 Case 2 Move to suffix node
-							ActivePoint.activeNode = ActivePoint.activeNode.suffix_link;
+							//System.out.println("Set Suffix link");
+							k.suffix_link = ActivePoint.activeNode.alp[ActivePoint.activeEdge];
 						}
-				}
+						
+						// Created internal Node is set in stack simply holding the previously created node 
+						k = ActivePoint.activeNode.alp[ActivePoint.activeEdge]; 
+						
+						// Rule 2 Case 1 ( stay on same node )
+						if(ActivePoint.activeNode == root && ActivePoint.activeLength > 0)
+						{
+							ActivePoint.activeLength--;
+							ActivePoint.chareterindex = i - ( rSC - 1 ) + 1; 
+							//ActivePoint.activeEdge = (int)charWord[ActivePoint.chareterindex] - (int)'a';
+							ActivePoint.activeEdge = (int)charWord[ActivePoint.chareterindex];
+						}
+						else if(ActivePoint.activeNode != root)
+							{
+								//Rule 2 Case 2 Move to suffix node
+								ActivePoint.activeNode = ActivePoint.activeNode.suffix_link;
+							}
+					}
 			}
 			else
 			{
@@ -233,18 +243,32 @@ class SuffixTree
 		}
 	}
 
+	private boolean noNodeFromActiveNode(int i) {
+		Node n = ActivePoint.activeNode.alp[ActivePoint.activeEdge];
+		if(n == null)
+		{
+			return true;
+		}
+		
+		return false;
+	}
+
 	private boolean ifWalkDown() {
 		
 		Node n = ActivePoint.activeNode.alp[ActivePoint.activeEdge];
-		int edgeLength;
+		if(n != null)
+		{
+			int edgeLength;
+			
+			if(n.edge_end == -1)
+				edgeLength = END - n.edge_start + 1;
+			else
+				edgeLength = n.edge_end - n.edge_start + 1;
+			
+			if(ActivePoint.activeLength >= edgeLength)
+				return true;
+		}
 		
-		if(n.edge_end == -1)
-			edgeLength = END - n.edge_start + 1;
-		else
-			edgeLength = n.edge_end - n.edge_start + 1;
-		
-		if(ActivePoint.activeLength >= edgeLength)
-			return true;
 		return false;
 	}
 
@@ -262,14 +286,18 @@ class SuffixTree
 		
 		// Setting pointer from internal node to leaf
 		parent.edge_start =  internalNode.edge_end + 1;
-		int index = (int)charWord[parent.edge_start] - (int)'a';
+		//int index = (int)charWord[parent.edge_start] - (int)'a';
+		int index = (int)charWord[parent.edge_start];
 		internalNode.alp[index] = parent;	
 		
 		//  Setting pointer to next leaf
+		/*
 		if(charWord[i] != '$')
 			index = (int)charWord[i] - (int)'a';
 		else
 			index = 26;
+		*/
+		index = (int)charWord[i];
 		internalNode.alp[index] = otherLeaf;
 		
 		// Setting pointer to internal node
@@ -279,11 +307,14 @@ class SuffixTree
 
 	private boolean characterAfterActivePoint(int i) {
 		Node n = ActivePoint.activeNode.alp[ActivePoint.activeEdge]; 
-		int start = n.edge_start;
-		if(charWord[start + ActivePoint.activeLength] == charWord[i])
-			return true;
-		else
-			return false;
+		if(n != null)
+		{
+			int start = n.edge_start;
+			if(charWord[start + ActivePoint.activeLength] == charWord[i])
+				return true;
+		}
+		
+		return false;
 	}
 
 	private boolean pathFromNodeWithActiveEdgeLabel() {
@@ -298,9 +329,10 @@ public class B
 {
 	public static void main(String[] args)
 	{
-	   SuffixTree st = new SuffixTree("kknationo$");
+	   SuffixTree st = new SuffixTree("abcabcabckansnh$");
 	   
 	   st.printAllSuffixes(st.root);
+	   
 	   
 	}
 }
