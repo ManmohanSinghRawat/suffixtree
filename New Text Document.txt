@@ -190,6 +190,10 @@ class SuffixTree
 					// Rule 3 apply  as current character already present
 					//System.out.println("Rule 3 Applied ....");
 					ActivePoint.activeLength++;
+					if(k!=null)
+					{
+						k.suffix_index = root;
+					}
 					return;
 				}
 				else if(noNodeFromActiveNode(i))
